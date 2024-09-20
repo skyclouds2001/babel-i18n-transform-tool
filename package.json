@@ -1,6 +1,6 @@
 {
-  "name": "csy",
-  "version": "1.0.0",
+  "name": "i18n-transform-tool",
+  "version": "0.0.0",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -9,9 +9,14 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "packageManager": "pnpm@9.10.0",
   "dependencies": {
     "@babel/core": "^7.25.2",
     "pinyin-pro": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/babel__core": "^7.20.5",
+    "@types/node": "^22.5.5"
   }
 }

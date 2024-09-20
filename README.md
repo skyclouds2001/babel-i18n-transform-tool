@@ -1,1 +1,1 @@
-# babel-i18n-transform-tool
+# i18n-transform-tool
