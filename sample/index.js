@@ -4,17 +4,17 @@ str = '字面量'
 
 str = `字面量${text}字面量`
 
-var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
+// var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
 
 const fn = () => {}
 
 let arr = ['成员']
 
 let obj = {
-    // '键名键值': '键值键值',
-    // '键名': 10,
+    '键名': 10,
     10: '键值',
-    [fn('test')]: 'str',
+    ['键值']: 'str',
+    ['键值'] () {},
 }
 
 obj[10] = '字面量'
