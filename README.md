@@ -20,3 +20,4 @@ npx i18n-transform-tool ./input.js ./output.js
 - [babel ast standard](https://github.com/babel/babel/blob/main/packages/babel-parser/ast/spec.md)
 - [jsx ast standard](https://github.com/babel/babel/blob/main/packages/babel-parser/ast/spec.md)
 - [ast explorer](https://astexplorer.net/)
+- [babel-plugin-handbook](https://github.com/acdlite/babel-plugin-handbook/blob/master/translations/zh-Hans/README.md)

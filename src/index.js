@@ -19,12 +19,11 @@ const regexp = /[\u4e00-\u9fa5]+/
  * the main exec process
  * @returns {Promise<void>} none
  */
-export async function exec () {
+export async function exec() {
   try {
     const cwd = process.cwd()
 
     const argv = minimist(process.argv.slice(2), { string: ['_'] })
-    console.log(argv)
 
     /** @type {Options} */
     const options = {
@@ -42,7 +41,6 @@ export async function exec () {
     if (!path.isAbsolute(options.output)) {
       options.output = path.resolve(cwd, options.output)
     }
-    console.log(options)
 
     const file = await fs.readFile(options.input, {
       encoding: 'utf-8',
@@ -78,24 +76,38 @@ export async function transform(input) {
   }
 
   babel.traverse(ast, {
-    StringLiteral: (path) => {
-      if (regexp.test(path.node.value)) {
-        path.replaceWith(
-          babel.types.callExpression(
-            babel.types.identifier('i18n'),
-            [babel.types.stringLiteral(generateKey(path.node.value))],
+    StringLiteral: {
+      enter: (path) => {
+        if (regexp.test(path.node.value)) {
+          path.replaceWith(
+            babel.types.callExpression(
+              babel.types.identifier('i18n'),
+              [babel.types.stringLiteral(generateKey(path.node.value))],
+            )
           )
-        )
-      }
+        }
+      },
     },
-    ObjectProperty: (path) => {
-      if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
-        path.node.key = babel.types.callExpression(
-          babel.types.identifier('i18n'),
-          [babel.types.stringLiteral(generateKey(path.node.key.value))],
-        )
-      }
+    ObjectProperty: {
+      enter: (path) => {
+        if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
+          path.node.key = babel.types.arrayExpression([babel.types.callExpression(
+            babel.types.identifier('i18n'),
+            [babel.types.stringLiteral(generateKey(path.node.key.value))],
+          )])
+        }
+      },
     },
+    // TemplateElement: (path) => {
+    //   if (regexp.test(path.node.value.raw)) {
+    //     path.replaceWith(
+    //       babel.types.callExpression(
+    //         babel.types.identifier('i18n'),
+    //         [babel.types.stringLiteral(generateKey(path.node.value.raw))],
+    //       )
+    //     )
+    //   }
+    // }
   })
 
   const result = await babel.transformFromAstAsync(ast)
@@ -112,7 +124,7 @@ export async function transform(input) {
  * @param {string} chinese chinese string
  * @returns {string} i18n key
  */
-export function generateKey (chinese) {
+export function generateKey(chinese) {
   const py = pinyin(chinese, { toneType: 'none', type: 'array' })
   if (py.length >= 16) {
     return py.map(v => v.slice(0, 1)).join('')
