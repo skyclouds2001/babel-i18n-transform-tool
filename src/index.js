@@ -3,6 +3,7 @@
 import process from 'node:process'
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import minimist from 'minimist'
 import * as babel from '@babel/core'
 import { pinyin } from 'pinyin-pro'
 
@@ -16,16 +17,34 @@ const regexp = /[\u4e00-\u9fa5]+/
 
 /**
  * the main exec process
- * @param {Options} options exec options
  * @returns {Promise<void>} none
  */
-export async function exec (options) {
+export async function exec () {
   try {
-    const { input, output } = options
-
     const cwd = process.cwd()
 
-    const file = await fs.readFile(path.resolve(cwd, input), {
+    const argv = minimist(process.argv.slice(2), { string: ['_'] })
+    console.log(argv)
+
+    /** @type {Options} */
+    const options = {
+      input: argv.input ?? argv.i ?? argv._.at(0) ?? '',
+      output: argv.output ?? argv.o ?? argv._.at(1) ?? null,
+    }
+
+    if (!path.isAbsolute(options.input)) {
+      options.input = path.resolve(cwd, options.input)
+    }
+    if (options.output == null) {
+      const input = path.parse(options.input)
+      options.output = path.resolve(input.dir, `${input.name}.cache${input.ext}`)
+    }
+    if (!path.isAbsolute(options.output)) {
+      options.output = path.resolve(cwd, options.output)
+    }
+    console.log(options)
+
+    const file = await fs.readFile(options.input, {
       encoding: 'utf-8',
     })
     const code = file.toString()
@@ -36,7 +55,7 @@ export async function exec (options) {
       return
     }
 
-    await fs.writeFile(path.resolve(cwd, output), result, {
+    await fs.writeFile(options.output, result, {
       encoding: 'utf-8',
     })
   } catch (error) {
@@ -76,7 +95,7 @@ export async function transform(input) {
           [babel.types.stringLiteral(generateKey(path.node.key.value))],
         )
       }
-    }
+    },
   })
 
   const result = await babel.transformFromAstAsync(ast)
