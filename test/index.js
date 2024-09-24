@@ -130,8 +130,18 @@ for (; i18n("${generateKey('条件')}");) {}
   test.it('test template literal', async () => {
     const code = 'str = `字面量${12}abc${"abc"}abc${true}字面量`'
     const actual = await transform(code)
-    console.log(actual)
     const expected = 'str = `${i18n("' + generateKey('字面量') + '")}${12}abc${"abc"}abc${true}${i18n("' + generateKey('字面量') + '")}`;'
+    assert.equal(actual, expected)
+  })
+
+  test.it('test jsx element', async () => {
+    const code = `
+var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
+    `.trim()
+    const actual = await transform(code)
+    const expected = `
+  var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}</div>;
+    `.trim()
     assert.equal(actual, expected)
   })
 })

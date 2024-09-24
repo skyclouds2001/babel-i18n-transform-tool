@@ -52,6 +52,7 @@ export async function exec(options) {
  */
 export async function transform(input) {
   const ast = await babel.parseAsync(input, {
+    plugins: ['@babel/plugin-syntax-jsx'],
     sourceType: 'module',
   })
 
@@ -60,29 +61,25 @@ export async function transform(input) {
   }
 
   babel.traverse(ast, {
-    StringLiteral: {
-      enter: (path) => {
-        if (regexp.test(path.node.value)) {
-          path.replaceWith(
-            babel.types.callExpression(
-              babel.types.identifier('i18n'),
-              [babel.types.stringLiteral(generateKey(path.node.value))],
-            )
+    StringLiteral: (path) => {
+      if (regexp.test(path.node.value)) {
+        path.replaceWith(
+          babel.types.callExpression(
+            babel.types.identifier('i18n'),
+            [babel.types.stringLiteral(generateKey(path.node.value))],
           )
-        }
-      },
+        )
+      }
     },
-    ObjectProperty: {
-      enter: (path) => {
-        if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
-          path.node.key = babel.types.arrayExpression([
-            babel.types.callExpression(
-              babel.types.identifier('i18n'),
-              [babel.types.stringLiteral(generateKey(path.node.key.value))],
-            )
-          ])
-        }
-      },
+    ObjectProperty: (path) => {
+      if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
+        path.node.key = babel.types.arrayExpression([
+          babel.types.callExpression(
+            babel.types.identifier('i18n'),
+            [babel.types.stringLiteral(generateKey(path.node.key.value))],
+          )
+        ])
+      }
     },
     TemplateLiteral: (path) => {
       for (const node of [...(path.node.quasis)]) {
@@ -105,9 +102,34 @@ export async function transform(input) {
         }
       }
     },
+    JSXAttribute: (path) => {
+      if (babel.types.isStringLiteral(path.node.value) && regexp.test(path.node.value.value)) {
+        path.node.value = babel.types.jsxExpressionContainer(
+          babel.types.callExpression(
+            babel.types.identifier('i18n'),
+            [babel.types.stringLiteral(generateKey(path.node.value.value))],
+          )
+        )
+      }
+    },
+    JSXText: (path) => {
+      if (regexp.test(path.node.value)) {
+        path.replaceWith(
+          babel.types.jsxExpressionContainer(
+            babel.types.callExpression(
+              babel.types.identifier('i18n'),
+              [babel.types.stringLiteral(generateKey(path.node.value))],
+            )
+          )
+        )
+      }
+    },
   })
 
-  const result = await babel.transformFromAstAsync(ast)
+  const result = await babel.transformFromAstAsync(ast, undefined, {
+    plugins: ['@babel/plugin-syntax-jsx'],
+    sourceType: 'module',
+  })
 
   if (result == null || result.code == null) {
     return null
