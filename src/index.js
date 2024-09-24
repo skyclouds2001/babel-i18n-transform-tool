@@ -11,38 +11,22 @@ const regexp = /[\u4e00-\u9fa5]+/
 
 /**
  * @typedef {Object} Options cli options
- * @property {string} input input file path, could be a relative path to process exec working dictionary
- * @property {string} output output file path, could be a relative path to process exec working dictionary
+ * @property {string} input input file path, could be a relative path to process exec working dictionary, default to `${process.cwd()}index.js`
+ * @property {string} output output file path, could be a relative path to process exec working dictionary, default to `${process.cwd()}${input.filename}.cache.${input.fileext}`
  */
 
 /**
  * the main exec process
+ * @param {Options} options script passing options
  * @returns {Promise<void>} none
  */
-export async function exec() {
+export async function exec(options) {
   try {
-    const cwd = process.cwd()
-
     const argv = minimist(process.argv.slice(2), { string: ['_'] })
 
-    /** @type {Options} */
-    const options = {
-      input: argv.input ?? argv.i ?? argv._.at(0) ?? '',
-      output: argv.output ?? argv.o ?? argv._.at(1) ?? null,
-    }
+    const resolvedOptions = resolveOptions(options, argv)
 
-    if (!path.isAbsolute(options.input)) {
-      options.input = path.resolve(cwd, options.input)
-    }
-    if (options.output == null) {
-      const input = path.parse(options.input)
-      options.output = path.resolve(input.dir, `${input.name}.cache${input.ext}`)
-    }
-    if (!path.isAbsolute(options.output)) {
-      options.output = path.resolve(cwd, options.output)
-    }
-
-    const file = await fs.readFile(options.input, {
+    const file = await fs.readFile(resolvedOptions.input, {
       encoding: 'utf-8',
     })
     const code = file.toString()
@@ -53,7 +37,7 @@ export async function exec() {
       return
     }
 
-    await fs.writeFile(options.output, result, {
+    await fs.writeFile(resolvedOptions.output, result, {
       encoding: 'utf-8',
     })
   } catch (error) {
@@ -91,23 +75,36 @@ export async function transform(input) {
     ObjectProperty: {
       enter: (path) => {
         if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
-          path.node.key = babel.types.arrayExpression([babel.types.callExpression(
-            babel.types.identifier('i18n'),
-            [babel.types.stringLiteral(generateKey(path.node.key.value))],
-          )])
+          path.node.key = babel.types.arrayExpression([
+            babel.types.callExpression(
+              babel.types.identifier('i18n'),
+              [babel.types.stringLiteral(generateKey(path.node.key.value))],
+            )
+          ])
         }
       },
     },
-    // TemplateElement: (path) => {
-    //   if (regexp.test(path.node.value.raw)) {
-    //     path.replaceWith(
-    //       babel.types.callExpression(
-    //         babel.types.identifier('i18n'),
-    //         [babel.types.stringLiteral(generateKey(path.node.value.raw))],
-    //       )
-    //     )
-    //   }
-    // }
+    TemplateLiteral: (path) => {
+      for (const node of [...(path.node.quasis)]) {
+        if (regexp.test(node.value.cooked ?? node.value.raw)) {
+          const index = path.node.quasis.indexOf(node)
+          path.node.quasis.splice(
+            index,
+            1,
+            babel.types.templateElement({ raw: '', cooked: '' }, false),
+            babel.types.templateElement({ raw: '', cooked: '' }, index === path.node.quasis.length - 1),
+          )
+          path.node.expressions.splice(
+            index,
+            0,
+            babel.types.callExpression(
+              babel.types.identifier('i18n'),
+              [babel.types.stringLiteral(generateKey(node.value.cooked ?? node.value.raw))],
+            ),
+          )
+        }
+      }
+    },
   })
 
   const result = await babel.transformFromAstAsync(ast)
@@ -136,4 +133,31 @@ export function generateKey(chinese) {
     return py.map(v => v.slice(0, 4)).join('')
   }
   return py.join('')
+}
+
+/**
+ * resolve options and arguments
+ * @param {Options} options options passing via code
+ * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o', string>>} args options passing via cli
+ * @returns {Options} resolved options
+ */
+export function resolveOptions(options, args) {
+  const cwd = process.cwd()
+
+  const ops = Object.assign({}, options)
+  ops.input = args.input ?? args.i ?? args._.at(0) ?? ops.input ?? 'index.js'
+  ops.output = args.output ?? args.o ?? args._.at(1) ?? ops.output ?? null
+
+  if (!path.isAbsolute(ops.input)) {
+    ops.input = path.resolve(cwd, ops.input)
+  }
+  if (ops.output == null) {
+    const ip = path.parse(ops.input)
+    ops.output = path.resolve(ip.dir, `${ip.name}.cache${ip.ext}`)
+  }
+  if (!path.isAbsolute(ops.output)) {
+    ops.output = path.resolve(cwd, ops.output)
+  }
+
+  return ops
 }
