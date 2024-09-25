@@ -140,7 +140,7 @@ var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
     `.trim()
     const actual = await transform(code)
     const expected = `
-  var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}</div>;
+var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}</div>;
     `.trim()
     assert.equal(actual, expected)
   })

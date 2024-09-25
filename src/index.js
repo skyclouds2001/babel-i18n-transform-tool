@@ -11,8 +11,9 @@ const regexp = /[\u4e00-\u9fa5]+/
 
 /**
  * @typedef {Object} Options cli options
- * @property {string} input input file path, could be a relative path to process exec working dictionary, default to `${process.cwd()}index.js`
- * @property {string} output output file path, could be a relative path to process exec working dictionary, default to `${process.cwd()}${input.filename}.cache.${input.fileext}`
+ * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`
+ * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `-input`
+ * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `-output`
  */
 
 /**
@@ -26,20 +27,44 @@ export async function exec(options) {
 
     const resolvedOptions = resolveOptions(options, argv)
 
-    const file = await fs.readFile(resolvedOptions.input, {
-      encoding: 'utf-8',
-    })
-    const code = file.toString()
+    const stats = await fs.stat(resolvedOptions.input)
+    if (stats.isDirectory()) {
+      const entries = await fs.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          const file = await fs.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
+            encoding: 'utf-8',
+          })
+          const code = file.toString()
 
-    const result = await transform(code)
+          const result = await transform(code)
 
-    if (result == null) {
-      return
+          if (result == null) {
+            return
+          }
+
+          await fs.writeFile(path.resolve(resolvedOptions.output, entry.parentPath ?? entry.path, entry.name), result, {
+            encoding: 'utf-8',
+          })
+        }
+      }
     }
+    if (stats.isFile()) {
+      const file = await fs.readFile(resolvedOptions.input, {
+        encoding: 'utf-8',
+      })
+      const code = file.toString()
 
-    await fs.writeFile(resolvedOptions.output, result, {
-      encoding: 'utf-8',
-    })
+      const result = await transform(code)
+
+      if (result == null) {
+        return
+      }
+
+      await fs.writeFile(resolvedOptions.output, result, {
+        encoding: 'utf-8',
+      })
+    }
   } catch (error) {
     console.error(error)
   }
@@ -160,26 +185,23 @@ export function generateKey(chinese) {
 /**
  * resolve options and arguments
  * @param {Options} options options passing via code
- * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o', string>>} args options passing via cli
- * @returns {Options} resolved options
+ * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r', string>>} args options passing via cli
+ * @returns {Readonly<Options>} resolved options
  */
 export function resolveOptions(options, args) {
-  const cwd = process.cwd()
-
   const ops = Object.assign({}, options)
+  ops.root = args.root ?? args.r ?? ops.root ?? process.cwd()
   ops.input = args.input ?? args.i ?? args._.at(0) ?? ops.input ?? 'index.js'
-  ops.output = args.output ?? args.o ?? args._.at(1) ?? ops.output ?? null
+  ops.output = args.output ?? args.o ?? args._.at(1) ?? ops.output ?? ops.input
 
   if (!path.isAbsolute(ops.input)) {
-    ops.input = path.resolve(cwd, ops.input)
-  }
-  if (ops.output == null) {
-    const ip = path.parse(ops.input)
-    ops.output = path.resolve(ip.dir, `${ip.name}.cache${ip.ext}`)
+    ops.input = path.resolve(ops.root, ops.input)
   }
   if (!path.isAbsolute(ops.output)) {
-    ops.output = path.resolve(cwd, ops.output)
+    ops.output = path.resolve(ops.root, ops.output)
   }
+
+  Object.freeze(ops)
 
   return ops
 }
