@@ -14,6 +14,7 @@ const regexp = /[\u4e00-\u9fa5]+/
  * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`
  * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `-input`
  * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `-output`
+ * @property {string[]} extensions will transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
@@ -25,7 +26,7 @@ export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts
  */
 export async function exec(options) {
   try {
-    const argv = minimist(process.argv.slice(2), { string: ['_'] })
+    const argv = minimist(process.argv.slice(2), { string: ['_', 'root', 'input', 'output', 'extensions'] })
 
     const resolvedOptions = resolveOptions(options, argv)
 
@@ -33,7 +34,7 @@ export async function exec(options) {
     if (stats.isDirectory()) {
       const entries = await fs.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
       for (const entry of entries) {
-        if (entry.isFile() && DEFAULT_EXECUTION_EXTENSIONS.includes(path.extname(entry.name))) {
+        if (entry.isFile() && resolvedOptions.extensions.includes(path.extname(entry.name))) {
           const file = await fs.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
             encoding: 'utf-8',
           })
@@ -52,7 +53,7 @@ export async function exec(options) {
         }
       }
     }
-    if (stats.isFile() && DEFAULT_EXECUTION_EXTENSIONS.includes(path.extname(resolvedOptions.input))) {
+    if (stats.isFile() && resolvedOptions.extensions.includes(path.extname(resolvedOptions.input))) {
       const file = await fs.readFile(resolvedOptions.input, {
         encoding: 'utf-8',
       })
@@ -188,7 +189,7 @@ export function generateKey(chinese) {
 /**
  * resolve options and arguments
  * @param {Options} options transform execution options
- * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r', string>>} args options passing via cli
+ * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions', string>>} args options passing via cli
  * @returns {Readonly<Options>} resolved read-only transform execution options
  */
 export function resolveOptions(options, args) {
@@ -196,6 +197,7 @@ export function resolveOptions(options, args) {
   ops.root = args.root ?? args.r ?? ops.root ?? process.cwd()
   ops.input = args.input ?? args.i ?? args._.at(0) ?? ops.input ?? 'index.js'
   ops.output = args.output ?? args.o ?? args._.at(1) ?? ops.output ?? ops.input
+  ops.extensions = args.extensions?.split(',') ?? ops.extensions ?? DEFAULT_EXECUTION_EXTENSIONS
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)
