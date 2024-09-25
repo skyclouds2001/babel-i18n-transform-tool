@@ -144,4 +144,15 @@ var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}
     `.trim()
     assert.equal(actual, expected)
   })
+
+  test.it('test typescript declaration', async () => {
+    const code = `
+const ts = [12, "测试", true] as const;
+    `.trim()
+    const actual = await transform(code)
+    const expected = `
+const ts = [12, i18n("ceshi"), true] as const;
+    `.trim()
+    assert.equal(actual, expected)
+  })
 })
