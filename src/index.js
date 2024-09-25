@@ -45,8 +45,9 @@ export async function exec(options) {
             return
           }
 
-          await fs.writeFile(path.resolve(resolvedOptions.output, entry.parentPath ?? entry.path, entry.name), result, {
+          await fs.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
             encoding: 'utf-8',
+            flush: true,
           })
         }
       }
@@ -81,7 +82,7 @@ export async function exec(options) {
 export async function transform(input, options) {
   const ast = await babel.parseAsync(input, {
     plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
-    sourceType: 'module',
+    sourceType: 'unambiguous',
   })
 
   if (ast == null) {
@@ -156,7 +157,6 @@ export async function transform(input, options) {
 
   const result = await babel.transformFromAstAsync(ast, undefined, {
     plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
-    sourceType: 'module',
   })
 
   if (result == null || result.code == null) {
