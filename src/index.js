@@ -10,15 +10,17 @@ import { pinyin } from 'pinyin-pro'
 const regexp = /[\u4e00-\u9fa5]+/
 
 /**
- * @typedef {Object} Options cli options
+ * @typedef {Object} Options transform execution options
  * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`
  * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `-input`
  * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `-output`
  */
 
+export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
+
 /**
- * the main exec process
- * @param {Options} options script passing options
+ * the main execution process
+ * @param {Options} options transform execution options
  * @returns {Promise<void>} none
  */
 export async function exec(options) {
@@ -31,13 +33,13 @@ export async function exec(options) {
     if (stats.isDirectory()) {
       const entries = await fs.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
       for (const entry of entries) {
-        if (entry.isFile()) {
+        if (entry.isFile() && DEFAULT_EXECUTION_EXTENSIONS.includes(path.extname(entry.name))) {
           const file = await fs.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
             encoding: 'utf-8',
           })
           const code = file.toString()
 
-          const result = await transform(code)
+          const result = await transform(code, resolvedOptions)
 
           if (result == null) {
             return
@@ -49,13 +51,13 @@ export async function exec(options) {
         }
       }
     }
-    if (stats.isFile()) {
+    if (stats.isFile() && DEFAULT_EXECUTION_EXTENSIONS.includes(path.extname(resolvedOptions.input))) {
       const file = await fs.readFile(resolvedOptions.input, {
         encoding: 'utf-8',
       })
       const code = file.toString()
 
-      const result = await transform(code)
+      const result = await transform(code, resolvedOptions)
 
       if (result == null) {
         return
@@ -73,9 +75,10 @@ export async function exec(options) {
 /**
  * transform input code to output code with chinese string replaced
  * @param {string} input untransformed code
+ * @param {Readonly<Options>} options transform execution options
  * @returns {Promise<string | null>} transformed code
  */
-export async function transform(input) {
+export async function transform(input, options) {
   const ast = await babel.parseAsync(input, {
     plugins: ['@babel/plugin-syntax-jsx'],
     sourceType: 'module',
@@ -184,9 +187,9 @@ export function generateKey(chinese) {
 
 /**
  * resolve options and arguments
- * @param {Options} options options passing via code
+ * @param {Options} options transform execution options
  * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r', string>>} args options passing via cli
- * @returns {Readonly<Options>} resolved options
+ * @returns {Readonly<Options>} resolved read-only transform execution options
  */
 export function resolveOptions(options, args) {
   const ops = Object.assign({}, options)
