@@ -80,7 +80,7 @@ export async function exec(options) {
  */
 export async function transform(input, options) {
   const ast = await babel.parseAsync(input, {
-    plugins: ['@babel/plugin-syntax-jsx'],
+    plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
     sourceType: 'module',
   })
 
@@ -155,7 +155,7 @@ export async function transform(input, options) {
   })
 
   const result = await babel.transformFromAstAsync(ast, undefined, {
-    plugins: ['@babel/plugin-syntax-jsx'],
+    plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
     sourceType: 'module',
   })
 
