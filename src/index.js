@@ -5,6 +5,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import fsPromises from 'node:fs/promises'
 import minimist from 'minimist'
+import { glob } from 'glob'
 import * as babel from '@babel/core'
 import { pinyin } from 'pinyin-pro'
 
@@ -12,28 +13,38 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 
 /**
  * @typedef {Object} Options transform execution options
- * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`, will be used as relative path base of `input` and `output`
- * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `-input`
- * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `-output`
- * @property {string[]} extensions additionally transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `-extensions`
+ * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `--root`, will be used as relative path base of `input` and `output`
+ * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `--input`
+ * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `--output`
+ * @property {string[]} extensions additionally transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `--extensions`
+ * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`, could be overwritten by `--include`
+ * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`, could be overwritten by `--exclude`
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
 
+export const DEFAULT_INCLUDE_FILES = '**'
+
+export const DEFAULT_EXCLUDE_FILES = '**/node_modules/**'
+
 /**
  * the main execution process
- * @param {Partial<Options>} options transform execution options
+ * @param {Partial<Options>=} options transform execution options
  * @returns {Promise<void>} none
  */
-export async function exec(options) {
+export async function exec(options = {}) {
   try {
-    const argv = minimist(process.argv.slice(2), { string: ['_', 'root', 'input', 'output', 'extensions'] })
+    const argv = minimist(process.argv.slice(2), { string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude'] })
 
     const resolvedOptions = resolveOptions(options, argv)
 
     const stats = await fsPromises.stat(resolvedOptions.input)
     if (stats.isDirectory()) {
-      const entries = await fsPromises.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
+      const entries = await glob(resolvedOptions.include, {
+        ignore: resolvedOptions.exclude,
+        cwd: resolvedOptions.input,
+        withFileTypes: true,
+      })
       for (const entry of entries) {
         if (entry.isFile() && resolvedOptions.extensions.includes(path.extname(entry.name))) {
           const file = await fsPromises.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
@@ -190,7 +201,7 @@ export function generateKey(chinese) {
 /**
  * resolve options and arguments
  * @param {Partial<Options>} options transform execution options
- * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions', string | string[]>>} args options passing via cli
+ * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions' | 'include' | 'exclude', string | string[]>>} args options passing via cli
  * @returns {Readonly<Options>} resolved read-only transform execution options
  */
 export function resolveOptions(options, args) {
@@ -199,6 +210,8 @@ export function resolveOptions(options, args) {
   ops.input = toString(args.input ?? args.i ?? args._.at(0) ?? options.input ?? 'index.js')
   ops.output = toString(args.output ?? args.o ?? args._.at(1) ?? options.output ?? ops.input)
   ops.extensions = DEFAULT_EXECUTION_EXTENSIONS.concat(toArray(args.extensions ?? options.extensions ?? []))
+  ops.include = toArray(args.include ?? options.include ?? DEFAULT_INCLUDE_FILES)
+  ops.exclude = toArray(args.exclude ?? options.exclude ?? DEFAULT_EXCLUDE_FILES)
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)
