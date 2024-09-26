@@ -13,10 +13,10 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 
 /**
  * @typedef {Object} Options transform execution options
- * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `--root`, will be used as relative path base of `input` and `output`
- * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `--input`
+ * @property {string} root root execution path, will be used as relative path base of `input` and `output`, default to `process.cwd()`, could be overwritten by `-r` `--root`
+ * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + './index.js'`, could be overwritten by `-i` `--input`
  * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `--output`
- * @property {string[]} extensions additionally transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `--extensions`
+ * @property {string[]} extensions additionally transform file extensions, will extend the default extensions list, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `--extensions`
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`, could be overwritten by `--include`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`, could be overwritten by `--exclude`
  */
