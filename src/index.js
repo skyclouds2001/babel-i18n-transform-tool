@@ -2,26 +2,27 @@
 
 import process from 'node:process'
 import path from 'node:path'
-import fs from 'node:fs/promises'
+import fs from 'node:fs'
+import fsPromises from 'node:fs/promises'
 import minimist from 'minimist'
 import * as babel from '@babel/core'
 import { pinyin } from 'pinyin-pro'
 
-const regexp = /[\u4e00-\u9fa5]+/
+const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 
 /**
  * @typedef {Object} Options transform execution options
- * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`
+ * @property {string} root root execution path, default to `process.cwd()`, could be overwritten by `-r` `-root`, will be used as relative path base of `input` and `output`
  * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + '/index.js'`, could be overwritten by `-i` `-input`
  * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`, could be overwritten by `-o` `-output`
- * @property {string[]} extensions will transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`
+ * @property {string[]} extensions additionally transform file extensions, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `-extensions`
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
 
 /**
  * the main execution process
- * @param {Options} options transform execution options
+ * @param {Partial<Options>} options transform execution options
  * @returns {Promise<void>} none
  */
 export async function exec(options) {
@@ -30,12 +31,12 @@ export async function exec(options) {
 
     const resolvedOptions = resolveOptions(options, argv)
 
-    const stats = await fs.stat(resolvedOptions.input)
+    const stats = await fsPromises.stat(resolvedOptions.input)
     if (stats.isDirectory()) {
-      const entries = await fs.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
+      const entries = await fsPromises.readdir(resolvedOptions.input, { recursive: true, withFileTypes: true })
       for (const entry of entries) {
         if (entry.isFile() && resolvedOptions.extensions.includes(path.extname(entry.name))) {
-          const file = await fs.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
+          const file = await fsPromises.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
             encoding: 'utf-8',
           })
           const code = file.toString()
@@ -46,7 +47,7 @@ export async function exec(options) {
             return
           }
 
-          await fs.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
+          await fsPromises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
             encoding: 'utf-8',
             flush: true,
           })
@@ -54,7 +55,7 @@ export async function exec(options) {
       }
     }
     if (stats.isFile() && resolvedOptions.extensions.includes(path.extname(resolvedOptions.input))) {
-      const file = await fs.readFile(resolvedOptions.input, {
+      const file = await fsPromises.readFile(resolvedOptions.input, {
         encoding: 'utf-8',
       })
       const code = file.toString()
@@ -65,7 +66,7 @@ export async function exec(options) {
         return
       }
 
-      await fs.writeFile(resolvedOptions.output, result, {
+      await fsPromises.writeFile(resolvedOptions.output, result, {
         encoding: 'utf-8',
       })
     }
@@ -92,7 +93,7 @@ export async function transform(input, options) {
 
   babel.traverse(ast, {
     StringLiteral: (path) => {
-      if (regexp.test(path.node.value)) {
+      if (REGEXP.test(path.node.value)) {
         path.replaceWith(
           babel.types.callExpression(
             babel.types.identifier('i18n'),
@@ -102,7 +103,7 @@ export async function transform(input, options) {
       }
     },
     ObjectProperty: (path) => {
-      if (babel.types.isStringLiteral(path.node.key) && regexp.test(path.node.key.value)) {
+      if (babel.types.isStringLiteral(path.node.key) && REGEXP.test(path.node.key.value)) {
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
             babel.types.identifier('i18n'),
@@ -113,7 +114,7 @@ export async function transform(input, options) {
     },
     TemplateLiteral: (path) => {
       for (const node of [...(path.node.quasis)]) {
-        if (regexp.test(node.value.cooked ?? node.value.raw)) {
+        if (REGEXP.test(node.value.cooked ?? node.value.raw)) {
           const index = path.node.quasis.indexOf(node)
           path.node.quasis.splice(
             index,
@@ -133,7 +134,7 @@ export async function transform(input, options) {
       }
     },
     JSXAttribute: (path) => {
-      if (babel.types.isStringLiteral(path.node.value) && regexp.test(path.node.value.value)) {
+      if (babel.types.isStringLiteral(path.node.value) && REGEXP.test(path.node.value.value)) {
         path.node.value = babel.types.jsxExpressionContainer(
           babel.types.callExpression(
             babel.types.identifier('i18n'),
@@ -143,7 +144,7 @@ export async function transform(input, options) {
       }
     },
     JSXText: (path) => {
-      if (regexp.test(path.node.value)) {
+      if (REGEXP.test(path.node.value)) {
         path.replaceWith(
           babel.types.jsxExpressionContainer(
             babel.types.callExpression(
@@ -188,16 +189,16 @@ export function generateKey(chinese) {
 
 /**
  * resolve options and arguments
- * @param {Options} options transform execution options
- * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions', string>>} args options passing via cli
+ * @param {Partial<Options>} options transform execution options
+ * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions', string | string[]>>} args options passing via cli
  * @returns {Readonly<Options>} resolved read-only transform execution options
  */
 export function resolveOptions(options, args) {
-  const ops = Object.assign({}, options)
-  ops.root = args.root ?? args.r ?? ops.root ?? process.cwd()
-  ops.input = args.input ?? args.i ?? args._.at(0) ?? ops.input ?? 'index.js'
-  ops.output = args.output ?? args.o ?? args._.at(1) ?? ops.output ?? ops.input
-  ops.extensions = args.extensions?.split(',') ?? ops.extensions ?? DEFAULT_EXECUTION_EXTENSIONS
+  const ops = {}
+  ops.root = toString(args.root ?? args.r ?? options.root ?? process.cwd())
+  ops.input = toString(args.input ?? args.i ?? args._.at(0) ?? options.input ?? 'index.js')
+  ops.output = toString(args.output ?? args.o ?? args._.at(1) ?? options.output ?? ops.input)
+  ops.extensions = DEFAULT_EXECUTION_EXTENSIONS.concat(toArray(args.extensions ?? options.extensions ?? []))
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)
@@ -205,8 +206,31 @@ export function resolveOptions(options, args) {
   if (!path.isAbsolute(ops.output)) {
     ops.output = path.resolve(ops.root, ops.output)
   }
+  const i = fs.statSync(ops.input)
+  const o = fs.statSync(ops.output)
+  if (i.isDirectory() && o.isFile() || i.isFile() && o.isDirectory()) {
+    ops.output = ops.input
+  }
 
   Object.freeze(ops)
 
   return ops
+}
+
+/**
+ * transform string or string array to string array
+ * @param {string | string[]} data input
+ * @returns {string[]} output
+ */
+function toArray(data) {
+  return Array.isArray(data) ? data : [data]
+}
+
+/**
+ * transform string or string array to string array
+ * @param {string | string[]} data input
+ * @returns {string} output
+ */
+function toString(data) {
+  return Array.isArray(data) ? (data.at(-1) ?? '') : data
 }
