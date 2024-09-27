@@ -170,6 +170,7 @@ export async function transform(input, options) {
 
   const result = await babel.transformFromAstAsync(ast, undefined, {
     plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
+    retainLines: true,
   })
 
   if (result == null || result.code == null) {
