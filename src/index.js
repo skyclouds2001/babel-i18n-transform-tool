@@ -155,6 +155,10 @@ export async function transform(input, options) {
       }
     },
     StringLiteral: (path) => {
+      if (babel.types.isTSLiteralType(path.parentPath.node)) {
+        return
+      }
+
       if (REGEXP.test(path.node.value)) {
         path.replaceWith(
           babel.types.callExpression(
@@ -183,6 +187,10 @@ export async function transform(input, options) {
       }
     },
     TemplateLiteral: (path) => {
+      if (babel.types.isTSLiteralType(path.parentPath.node)) {
+        return
+      }
+
       for (const node of Array.from(path.node.quasis)) {
         if (REGEXP.test(node.value.cooked ?? node.value.raw)) {
           const index = path.node.quasis.indexOf(node)

@@ -186,4 +186,22 @@ import { i18n } from "i18n";
     `.trim()
     assert.equal(actual, expected)
   })
+
+  test.it('should not transform chinese when used as type definition', async () => {
+    const code = `
+interface u {
+  t: '测试';
+}
+type r = '测试';
+    `.trim() + "\ntype t = `测试${'测试'}测试`;"
+    const actual = await transform(code, options)
+    const expected = `
+import { i18n } from "i18n";
+interface u {
+  t: '测试';
+}
+type r = '测试';
+    `.trim() + "\ntype t = `测试${'测试'}测试`;"
+    assert.equal(actual, expected)
+  })
 })
