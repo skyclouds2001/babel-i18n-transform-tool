@@ -60,6 +60,9 @@ export async function exec(options = {}) {
           importIdentity: 'import-identity',
           importSource: 'import-source',
         },
+        default: {
+          'auto-import': true,
+        },
       },
     )
 
@@ -259,7 +262,7 @@ export async function transform(input, options) {
  * @returns {string} i18n key
  */
 export function generateKey(chinese) {
-  const py = pinyin(chinese, { toneType: 'none', type: 'array' })
+  const py = pinyin(chinese.trim().replace(/\s+/g, ''), { toneType: 'none', type: 'array' })
   if (py.length >= 16) {
     return py.map(v => v.slice(0, 1)).join('')
   }
