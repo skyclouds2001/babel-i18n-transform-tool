@@ -3,13 +3,19 @@ import assert from 'node:assert'
 import { transform, generateKey } from '../src/index.js'
 
 test.describe('should be able to transform code', () => {
+  const options = Object.freeze({
+    autoImport: true,
+    autoImportIdentity: 'i18n',
+    autoImportSource: 'i18n',
+  })
+
   test.it('should support transform variable declaration - var', async () => {
     const code = `
 var a = '字面量';
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 var a = i18n("${generateKey('字面量')}");
     `.trim()
     assert.equal(actual, expected)
@@ -19,9 +25,9 @@ var a = i18n("${generateKey('字面量')}");
     const code = `
 let a = '字面量';
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 let a = i18n("${generateKey('字面量')}");
     `.trim()
     assert.equal(actual, expected)
@@ -31,9 +37,9 @@ let a = i18n("${generateKey('字面量')}");
     const code = `
 const a = '字面量';
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 const a = i18n("${generateKey('字面量')}");
     `.trim()
     assert.equal(actual, expected)
@@ -43,9 +49,9 @@ const a = i18n("${generateKey('字面量')}");
     const code = `
 const arr = [10, '字面量', true, null, undefined, Symbol(), 12n, [], {}];
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 const arr = [10, i18n("${generateKey('字面量')}"), true, null, undefined, Symbol(), 12n, [], {}];
     `.trim()
     assert.equal(actual, expected)
@@ -60,9 +66,9 @@ const obj = {
   10: '键值'
 };
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 const obj = {
   [i18n("${generateKey('键名键名')}")]: i18n("${generateKey('键值键值')}"),
   [i18n("${generateKey('键名')}")]: 10,
@@ -77,9 +83,9 @@ const obj = {
     const code = `
 '条件' ? '结果1' : '结果2';
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 i18n("${generateKey('条件')}") ? i18n("${generateKey('结果1')}") : i18n("${generateKey('结果2')}");
     `.trim()
     assert.equal(actual, expected)
@@ -89,9 +95,9 @@ i18n("${generateKey('条件')}") ? i18n("${generateKey('结果1')}") : i18n("${g
     const code = `
 if ('条件') {}
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 if (i18n("${generateKey('条件')}")) {}
     `.trim()
     assert.equal(actual, expected)
@@ -104,9 +110,9 @@ switch ('条件') {
     break
 }
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 switch (i18n("${generateKey('条件')}")) {
   case i18n("${generateKey('条件')}"):
     break;
@@ -119,9 +125,9 @@ switch (i18n("${generateKey('条件')}")) {
     const code = `
 while ('条件') {}
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 while (i18n("${generateKey('条件')}")) {}
     `.trim()
     assert.equal(actual, expected)
@@ -131,9 +137,9 @@ while (i18n("${generateKey('条件')}")) {}
     const code = `
 for (; '条件';) {}
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 for (; i18n("${generateKey('条件')}");) {}
     `.trim()
     assert.equal(actual, expected)
@@ -141,8 +147,8 @@ for (; i18n("${generateKey('条件')}");) {}
 
   test.it('should support transform template literal', async () => {
     const code = 'str = `字面量${12}abc${"abc"}abc${true}字面量`'
-    const actual = await transform(code)
-    const expected = 'import { i18n } from "./i18n";\nstr = `${i18n("' + generateKey('字面量') + '")}${12}abc${"abc"}abc${true}${i18n("' + generateKey('字面量') + '")}`;'
+    const actual = await transform(code, options)
+    const expected = 'import { i18n } from "i18n";\nstr = `${i18n("' + generateKey('字面量') + '")}${12}abc${"abc"}abc${true}${i18n("' + generateKey('字面量') + '")}`;'
     assert.equal(actual, expected)
   })
 
@@ -150,9 +156,9 @@ for (; i18n("${generateKey('条件')}");) {}
     const code = `
 var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}</div>;
     `.trim()
     assert.equal(actual, expected)
@@ -162,9 +168,9 @@ var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}
     const code = `
 const ts = [12, "测试", true] as const;
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
 const ts = [12, i18n("ceshi"), true] as const;
     `.trim()
     assert.equal(actual, expected)
@@ -172,11 +178,11 @@ const ts = [12, i18n("ceshi"), true] as const;
 
   test.it('should not import help function if existed already', async () => {
     const code = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
     `.trim()
-    const actual = await transform(code)
+    const actual = await transform(code, options)
     const expected = `
-import { i18n } from "./i18n";
+import { i18n } from "i18n";
     `.trim()
     assert.equal(actual, expected)
   })

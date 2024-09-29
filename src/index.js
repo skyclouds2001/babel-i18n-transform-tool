@@ -1,5 +1,3 @@
-// @ts-check
-
 import process from 'node:process'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -19,6 +17,25 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {string[]} extensions additionally transform file extensions, will extend the default extensions list, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `--extensions`
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`, could be overwritten by `--include`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`, could be overwritten by `--exclude`
+ * @property {boolean} autoImport whether automatically import help function, default to be `true`, could be overwritten by `--auto-import`
+ * @property {string} autoImportIdentity the identity of the imported help function, default to be `i18n`, could be overwritten by `--auto-import-identity`
+ * @property {string} autoImportSource the source of the imported help function, default to be `i18n`, could be overwritten by `--auto-import-source`
+ */
+
+/**
+ * @typedef {Options} Args transform cli options
+ * @property {string} root root execution path, will be used as relative path base of `input` and `output`, default to `process.cwd()`
+ * @property {string} r alias for `root`
+ * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + './index.js'`
+ * @property {string} i alias for `input`
+ * @property {string} output output file(s) path, could be a relative path to process execution working dictionary, default to `options.input`
+ * @property {string} o alias for `output`
+ * @property {string[]} extensions additionally transform file extensions, will extend the default extensions list, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`
+ * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`
+ * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`
+ * @property {boolean} autoImport whether automatically import help function, default to be `true`
+ * @property {string} autoImportIdentity the identity of the imported help function, default to be `i18n`
+ * @property {string} autoImportSource the source of the imported help function, default to be `i18n`
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
@@ -34,7 +51,18 @@ export const DEFAULT_EXCLUDE_FILES = '**/node_modules/**'
  */
 export async function exec(options = {}) {
   try {
-    const argv = minimist(process.argv.slice(2), { string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude'] })
+    const argv = minimist(
+      process.argv.slice(2),
+      {
+        string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude', 'auto-import-identity', 'auto-import-source'],
+        boolean: ['auto-import'],
+        alias: {
+          autoImport: 'auto-import',
+          autoImportIdentity: 'auto-import-identity',
+          autoImportSource: 'auto-import-source',
+        },
+      },
+    )
 
     const resolvedOptions = resolveOptions(options, argv)
 
@@ -112,16 +140,16 @@ export async function transform(input, options) {
 
   babel.traverse(ast, {
     Program: (path) => {
-      if (!path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === 'i18n') && node.source.value === './i18n')) {
+      if (options.autoImport && !path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === options.autoImportIdentity) && node.source.value === options.autoImportSource)) {
         path.node.body.unshift(
           babel.types.importDeclaration(
             [
               babel.types.importSpecifier(
-                babel.types.identifier('i18n'),
-                babel.types.identifier('i18n'),
+                babel.types.identifier(options.autoImportIdentity),
+                babel.types.identifier(options.autoImportIdentity),
               )
             ],
-            babel.types.stringLiteral('./i18n'),
+            babel.types.stringLiteral(options.autoImportSource),
           ),
         )
       }
@@ -130,7 +158,7 @@ export async function transform(input, options) {
       if (REGEXP.test(path.node.value)) {
         path.replaceWith(
           babel.types.callExpression(
-            babel.types.identifier('i18n'),
+            babel.types.identifier(options.autoImportIdentity),
             [babel.types.stringLiteral(generateKey(path.node.value))],
           )
         )
@@ -140,7 +168,7 @@ export async function transform(input, options) {
       if (babel.types.isStringLiteral(path.node.key) && REGEXP.test(path.node.key.value)) {
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
-            babel.types.identifier('i18n'),
+            babel.types.identifier(options.autoImportIdentity),
             [babel.types.stringLiteral(generateKey(path.node.key.value))],
           )
         ])
@@ -148,7 +176,7 @@ export async function transform(input, options) {
       if (babel.types.isIdentifier(path.node.key) && REGEXP.test(path.node.key.name)) {
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
-            babel.types.identifier('i18n'),
+            babel.types.identifier(options.autoImportIdentity),
             [babel.types.stringLiteral(generateKey(path.node.key.name))],
           )
         ])
@@ -168,7 +196,7 @@ export async function transform(input, options) {
             index,
             0,
             babel.types.callExpression(
-              babel.types.identifier('i18n'),
+              babel.types.identifier(options.autoImportIdentity),
               [babel.types.stringLiteral(generateKey(node.value.cooked ?? node.value.raw))],
             ),
           )
@@ -179,7 +207,7 @@ export async function transform(input, options) {
       if (babel.types.isStringLiteral(path.node.value) && REGEXP.test(path.node.value.value)) {
         path.node.value = babel.types.jsxExpressionContainer(
           babel.types.callExpression(
-            babel.types.identifier('i18n'),
+            babel.types.identifier(options.autoImportIdentity),
             [babel.types.stringLiteral(generateKey(path.node.value.value))],
           )
         )
@@ -190,7 +218,7 @@ export async function transform(input, options) {
         path.replaceWith(
           babel.types.jsxExpressionContainer(
             babel.types.callExpression(
-              babel.types.identifier('i18n'),
+              babel.types.identifier(options.autoImportIdentity),
               [babel.types.stringLiteral(generateKey(path.node.value))],
             )
           )
@@ -240,7 +268,7 @@ export function generateKey(chinese) {
 /**
  * resolve options and arguments
  * @param {Partial<Options>} options transform execution options
- * @param {minimist.ParsedArgs & Partial<Record<'input' | 'i' | 'output' | 'o' | 'root' | 'r' | 'extensions' | 'include' | 'exclude', string | string[]>>} args options passing via cli
+ * @param {minimist.ParsedArgs & Partial<Args>} args options passing via cli
  * @returns {Readonly<Options>} resolved read-only transform execution options
  */
 export function resolveOptions(options, args) {
@@ -251,6 +279,9 @@ export function resolveOptions(options, args) {
   ops.extensions = DEFAULT_EXECUTION_EXTENSIONS.concat(toArray(args.extensions ?? options.extensions ?? []))
   ops.include = toArray(args.include ?? options.include ?? DEFAULT_INCLUDE_FILES)
   ops.exclude = toArray(args.exclude ?? options.exclude ?? DEFAULT_EXCLUDE_FILES)
+  ops.autoImport = args.autoImport ?? options.autoImport ?? true
+  ops.autoImportIdentity = args.autoImportIdentity ?? options.autoImportIdentity ?? 'i18n'
+  ops.autoImportSource = args.autoImportSource ?? options.autoImportSource ?? 'i18n'
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)
