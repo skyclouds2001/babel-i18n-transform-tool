@@ -94,7 +94,15 @@ export async function exec(options = {}) {
  */
 export async function transform(input, options) {
   const ast = await babel.parseAsync(input, {
-    plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
+    plugins: [
+      [
+        '@babel/plugin-syntax-typescript',
+        {
+          disallowAmbiguousJSXLike: true,
+          isTSX: true,
+        },
+      ],
+    ],
     sourceType: 'unambiguous',
   })
 
@@ -103,6 +111,21 @@ export async function transform(input, options) {
   }
 
   babel.traverse(ast, {
+    Program: (path) => {
+      if (!path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === 'i18n') && node.source.value === './i18n')) {
+        path.node.body.unshift(
+          babel.types.importDeclaration(
+            [
+              babel.types.importSpecifier(
+                babel.types.identifier('i18n'),
+                babel.types.identifier('i18n'),
+              )
+            ],
+            babel.types.stringLiteral('./i18n'),
+          ),
+        )
+      }
+    },
     StringLiteral: (path) => {
       if (REGEXP.test(path.node.value)) {
         path.replaceWith(
@@ -122,9 +145,17 @@ export async function transform(input, options) {
           )
         ])
       }
+      if (babel.types.isIdentifier(path.node.key) && REGEXP.test(path.node.key.name)) {
+        path.node.key = babel.types.arrayExpression([
+          babel.types.callExpression(
+            babel.types.identifier('i18n'),
+            [babel.types.stringLiteral(generateKey(path.node.key.name))],
+          )
+        ])
+      }
     },
     TemplateLiteral: (path) => {
-      for (const node of [...(path.node.quasis)]) {
+      for (const node of Array.from(path.node.quasis)) {
         if (REGEXP.test(node.value.cooked ?? node.value.raw)) {
           const index = path.node.quasis.indexOf(node)
           path.node.quasis.splice(
@@ -169,8 +200,15 @@ export async function transform(input, options) {
   })
 
   const result = await babel.transformFromAstAsync(ast, undefined, {
-    plugins: [['@babel/plugin-syntax-typescript', { disallowAmbiguousJSXLike: true, isTSX: true }]],
-    retainLines: true,
+    plugins: [
+      [
+        '@babel/plugin-syntax-typescript',
+        {
+          disallowAmbiguousJSXLike: true,
+          isTSX: true,
+        },
+      ],
+    ],
   })
 
   if (result == null || result.code == null) {
