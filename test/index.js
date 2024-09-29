@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert'
 import { transform, generateKey } from '../src/index.js'
 
-test.describe('test transform code', () => {
-  test.it('test variable declaration - var', async () => {
+test.describe('should be able to transform code', () => {
+  test.it('should support transform variable declaration - var', async () => {
     const code = `
 var a = '字面量';
     `.trim()
@@ -15,7 +15,7 @@ var a = i18n("${generateKey('字面量')}");
     assert.equal(actual, expected)
   })
 
-  test.it('test variable declaration - let', async () => {
+  test.it('should support transform variable declaration - let', async () => {
     const code = `
 let a = '字面量';
     `.trim()
@@ -27,7 +27,7 @@ let a = i18n("${generateKey('字面量')}");
     assert.equal(actual, expected)
   })
 
-  test.it('test variable declaration - const', async () => {
+  test.it('should support transform variable declaration - const', async () => {
     const code = `
 const a = '字面量';
     `.trim()
@@ -39,7 +39,7 @@ const a = i18n("${generateKey('字面量')}");
     assert.equal(actual, expected)
   })
 
-  test.it('test array expression', async () => {
+  test.it('should support transform array expression', async () => {
     const code = `
 const arr = [10, '字面量', true, null, undefined, Symbol(), 12n, [], {}];
     `.trim()
@@ -51,7 +51,7 @@ const arr = [10, i18n("${generateKey('字面量')}"), true, null, undefined, Sym
     assert.equal(actual, expected)
   })
 
-  test.it('test object assignment', async () => {
+  test.it('should support transform object assignment', async () => {
     const code = `
 const obj = {
   '键名键名': '键值键值',
@@ -73,7 +73,7 @@ const obj = {
     assert.equal(actual, expected)
   })
 
-  test.it('test condition expression', async () => {
+  test.it('should support transform condition expression', async () => {
     const code = `
 '条件' ? '结果1' : '结果2';
     `.trim()
@@ -85,7 +85,7 @@ i18n("${generateKey('条件')}") ? i18n("${generateKey('结果1')}") : i18n("${g
     assert.equal(actual, expected)
   })
 
-  test.it('test if statement', async () => {
+  test.it('should support transform if-else statement', async () => {
     const code = `
 if ('条件') {}
     `.trim()
@@ -97,7 +97,7 @@ if (i18n("${generateKey('条件')}")) {}
     assert.equal(actual, expected)
   })
 
-  test.it('test switch statement', async () => {
+  test.it('should support transform switch-case statement', async () => {
     const code = `
 switch ('条件') {
   case '条件':
@@ -115,7 +115,7 @@ switch (i18n("${generateKey('条件')}")) {
     assert.equal(actual, expected)
   })
 
-  test.it('test while statement', async () => {
+  test.it('should support transform while statement', async () => {
     const code = `
 while ('条件') {}
     `.trim()
@@ -127,7 +127,7 @@ while (i18n("${generateKey('条件')}")) {}
     assert.equal(actual, expected)
   })
 
-  test.it('test for statement', async () => {
+  test.it('should support transform for statement', async () => {
     const code = `
 for (; '条件';) {}
     `.trim()
@@ -139,14 +139,14 @@ for (; i18n("${generateKey('条件')}");) {}
     assert.equal(actual, expected)
   })
 
-  test.it('test template literal', async () => {
+  test.it('should support transform template literal', async () => {
     const code = 'str = `字面量${12}abc${"abc"}abc${true}字面量`'
     const actual = await transform(code)
     const expected = 'import { i18n } from "./i18n";\nstr = `${i18n("' + generateKey('字面量') + '")}${12}abc${"abc"}abc${true}${i18n("' + generateKey('字面量') + '")}`;'
     assert.equal(actual, expected)
   })
 
-  test.it('test jsx element', async () => {
+  test.it('should support transform jsx element', async () => {
     const code = `
 var jsx = <div data-id="测试" data-name={"测试"}>测试</div>
     `.trim()
@@ -158,7 +158,7 @@ var jsx = <div data-id={i18n("ceshi")} data-name={i18n("ceshi")}>{i18n("ceshi")}
     assert.equal(actual, expected)
   })
 
-  test.it('test typescript declaration', async () => {
+  test.it('should support transform typescript declaration', async () => {
     const code = `
 const ts = [12, "测试", true] as const;
     `.trim()
@@ -170,7 +170,7 @@ const ts = [12, i18n("ceshi"), true] as const;
     assert.equal(actual, expected)
   })
 
-  test.it('test import already', async () => {
+  test.it('should not import help function if existed already', async () => {
     const code = `
 import { i18n } from "./i18n";
     `.trim()
