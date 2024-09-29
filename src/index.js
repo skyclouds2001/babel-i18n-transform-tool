@@ -1,7 +1,6 @@
 import process from 'node:process'
 import path from 'node:path'
 import fs from 'node:fs'
-import fsPromises from 'node:fs/promises'
 import minimist from 'minimist'
 import { glob } from 'glob'
 import * as babel from '@babel/core'
@@ -66,7 +65,7 @@ export async function exec(options = {}) {
 
     const resolvedOptions = resolveOptions(options, argv)
 
-    const stats = await fsPromises.stat(resolvedOptions.input)
+    const stats = await fs.promises.stat(resolvedOptions.input)
     if (stats.isDirectory()) {
       const entries = await glob(resolvedOptions.include, {
         ignore: resolvedOptions.exclude,
@@ -75,7 +74,7 @@ export async function exec(options = {}) {
       })
       for (const entry of entries) {
         if (entry.isFile() && resolvedOptions.extensions.includes(path.extname(entry.name))) {
-          const file = await fsPromises.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
+          const file = await fs.promises.readFile(path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name), {
             encoding: 'utf-8',
           })
           const code = file.toString()
@@ -86,7 +85,7 @@ export async function exec(options = {}) {
             return
           }
 
-          await fsPromises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
+          await fs.promises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
             encoding: 'utf-8',
             flush: true,
           })
@@ -94,7 +93,7 @@ export async function exec(options = {}) {
       }
     }
     if (stats.isFile() && resolvedOptions.extensions.includes(path.extname(resolvedOptions.input))) {
-      const file = await fsPromises.readFile(resolvedOptions.input, {
+      const file = await fs.promises.readFile(resolvedOptions.input, {
         encoding: 'utf-8',
       })
       const code = file.toString()
@@ -105,7 +104,7 @@ export async function exec(options = {}) {
         return
       }
 
-      await fsPromises.writeFile(resolvedOptions.output, result, {
+      await fs.promises.writeFile(resolvedOptions.output, result, {
         encoding: 'utf-8',
       })
     }
