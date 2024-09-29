@@ -18,8 +18,8 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`, could be overwritten by `--include`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`, could be overwritten by `--exclude`
  * @property {boolean} autoImport whether automatically import help function, default to be `true`, could be overwritten by `--auto-import`
- * @property {string} autoImportIdentity the identity of the imported help function, default to be `i18n`, could be overwritten by `--auto-import-identity`
- * @property {string} autoImportSource the source of the imported help function, default to be `i18n`, could be overwritten by `--auto-import-source`
+ * @property {string} importIdentity the identity of the imported help function, default to be `i18n`, could be overwritten by `--import-identity`
+ * @property {string} importSource the source of the imported help function, default to be `i18n`, could be overwritten by `--import-source`
  */
 
 /**
@@ -34,8 +34,8 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`
  * @property {boolean} autoImport whether automatically import help function, default to be `true`
- * @property {string} autoImportIdentity the identity of the imported help function, default to be `i18n`
- * @property {string} autoImportSource the source of the imported help function, default to be `i18n`
+ * @property {string} importIdentity the identity of the imported help function, default to be `i18n`
+ * @property {string} importSource the source of the imported help function, default to be `i18n`
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
@@ -58,8 +58,8 @@ export async function exec(options = {}) {
         boolean: ['auto-import'],
         alias: {
           autoImport: 'auto-import',
-          autoImportIdentity: 'auto-import-identity',
-          autoImportSource: 'auto-import-source',
+          importIdentity: 'import-identity',
+          importSource: 'import-source',
         },
       },
     )
@@ -140,16 +140,16 @@ export async function transform(input, options) {
 
   babel.traverse(ast, {
     Program: (path) => {
-      if (options.autoImport && !path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === options.autoImportIdentity) && node.source.value === options.autoImportSource)) {
+      if (options.autoImport && !path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === options.importIdentity) && node.source.value === options.importSource)) {
         path.node.body.unshift(
           babel.types.importDeclaration(
             [
               babel.types.importSpecifier(
-                babel.types.identifier(options.autoImportIdentity),
-                babel.types.identifier(options.autoImportIdentity),
+                babel.types.identifier(options.importIdentity),
+                babel.types.identifier(options.importIdentity),
               )
             ],
-            babel.types.stringLiteral(options.autoImportSource),
+            babel.types.stringLiteral(options.importSource),
           ),
         )
       }
@@ -162,7 +162,7 @@ export async function transform(input, options) {
       if (REGEXP.test(path.node.value)) {
         path.replaceWith(
           babel.types.callExpression(
-            babel.types.identifier(options.autoImportIdentity),
+            babel.types.identifier(options.importIdentity),
             [babel.types.stringLiteral(generateKey(path.node.value))],
           )
         )
@@ -172,7 +172,7 @@ export async function transform(input, options) {
       if (babel.types.isStringLiteral(path.node.key) && REGEXP.test(path.node.key.value)) {
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
-            babel.types.identifier(options.autoImportIdentity),
+            babel.types.identifier(options.importIdentity),
             [babel.types.stringLiteral(generateKey(path.node.key.value))],
           )
         ])
@@ -180,7 +180,7 @@ export async function transform(input, options) {
       if (babel.types.isIdentifier(path.node.key) && REGEXP.test(path.node.key.name)) {
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
-            babel.types.identifier(options.autoImportIdentity),
+            babel.types.identifier(options.importIdentity),
             [babel.types.stringLiteral(generateKey(path.node.key.name))],
           )
         ])
@@ -204,7 +204,7 @@ export async function transform(input, options) {
             index,
             0,
             babel.types.callExpression(
-              babel.types.identifier(options.autoImportIdentity),
+              babel.types.identifier(options.importIdentity),
               [babel.types.stringLiteral(generateKey(node.value.cooked ?? node.value.raw))],
             ),
           )
@@ -215,7 +215,7 @@ export async function transform(input, options) {
       if (babel.types.isStringLiteral(path.node.value) && REGEXP.test(path.node.value.value)) {
         path.node.value = babel.types.jsxExpressionContainer(
           babel.types.callExpression(
-            babel.types.identifier(options.autoImportIdentity),
+            babel.types.identifier(options.importIdentity),
             [babel.types.stringLiteral(generateKey(path.node.value.value))],
           )
         )
@@ -226,7 +226,7 @@ export async function transform(input, options) {
         path.replaceWith(
           babel.types.jsxExpressionContainer(
             babel.types.callExpression(
-              babel.types.identifier(options.autoImportIdentity),
+              babel.types.identifier(options.importIdentity),
               [babel.types.stringLiteral(generateKey(path.node.value))],
             )
           )
@@ -288,8 +288,8 @@ export function resolveOptions(options, args) {
   ops.include = toArray(args.include ?? options.include ?? DEFAULT_INCLUDE_FILES)
   ops.exclude = toArray(args.exclude ?? options.exclude ?? DEFAULT_EXCLUDE_FILES)
   ops.autoImport = args.autoImport ?? options.autoImport ?? true
-  ops.autoImportIdentity = args.autoImportIdentity ?? options.autoImportIdentity ?? 'i18n'
-  ops.autoImportSource = args.autoImportSource ?? options.autoImportSource ?? 'i18n'
+  ops.importIdentity = args.importIdentity ?? options.importIdentity ?? 'i18n'
+  ops.importSource = args.importSource ?? options.importSource ?? 'i18n'
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)

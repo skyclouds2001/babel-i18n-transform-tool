@@ -38,6 +38,9 @@ exec({
 | extensions | --extensions | `string[]` | `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']` | additionally transform file extensions, will extend the default extensions list |
 | include | --include | `string \| string[]` | `'**'` | included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary |
 | exclude | --exclude | `string \| string[]` | `'**\node_modules\**'` | excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary |
+| autoImport | --auto-import | `boolean` | `true` | whether automatically import help function |
+| importIdentity | --import-identity | `string` | `i18n` | the identity of the imported help function |
+| importSource | --import-source | `string` | `i18n` | the source of the imported help function |
 
 ## References
 
