@@ -5,6 +5,9 @@ import minimist from 'minimist'
 import { glob } from 'glob'
 import * as babel from '@babel/core'
 import { pinyin } from 'pinyin-pro'
+import * as xlsx from 'xlsx'
+
+xlsx.set_fs(fs)
 
 const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
 
@@ -22,7 +25,7 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  */
 
 /**
- * @typedef {Options} Args transform cli options
+ * @typedef {Object} Args transform cli options
  * @property {string} root root execution path, will be used as relative path base of `input` and `output`, default to `process.cwd()`
  * @property {string} r alias for `root`
  * @property {string} input input file(s) path, could be a relative path to process execution working dictionary, default to `process.cwd() + './index.js'`
@@ -35,6 +38,13 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {boolean} autoImport whether automatically import help function, default to be `true`
  * @property {string} importIdentity the identity of the imported help function, default to be `i18n`
  * @property {string} importSource the source of the imported help function, default to be `i18n`
+ */
+
+/**
+ * @typedef {Object} Record export sheet data structure
+ * @property {string} origin data origin
+ * @property {string} key generated key
+ * @property {string} zh_CN zh-CN data
  */
 
 export const DEFAULT_EXECUTION_EXTENSIONS = ['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']
@@ -68,6 +78,8 @@ export async function exec(options = {}) {
 
     const resolvedOptions = resolveOptions(options, argv)
 
+    const data = new Map()
+
     const stats = await fs.promises.stat(resolvedOptions.input)
     if (stats.isDirectory()) {
       const entries = await glob(resolvedOptions.include, {
@@ -82,7 +94,7 @@ export async function exec(options = {}) {
           })
           const code = file.toString()
 
-          const result = await transform(code, resolvedOptions)
+          const result = await transform(code, resolvedOptions, data)
 
           if (result == null) {
             return
@@ -101,7 +113,7 @@ export async function exec(options = {}) {
       })
       const code = file.toString()
 
-      const result = await transform(code, resolvedOptions)
+      const result = await transform(code, resolvedOptions, data)
 
       if (result == null) {
         return
@@ -111,6 +123,8 @@ export async function exec(options = {}) {
         encoding: 'utf-8',
       })
     }
+
+    exportSheet(Array.from(data).map((v) => v[1]), path.resolve(resolvedOptions.output, "data.xlsx"))
   } catch (error) {
     console.error(error)
   }
@@ -120,9 +134,10 @@ export async function exec(options = {}) {
  * transform input code to output code with chinese string replaced
  * @param {string} input untransformed code
  * @param {Readonly<Options>} options transform execution options
+ * @param {Map<string, Record>} data store to cache transform key-value pairs
  * @returns {Promise<string | null>} transformed code
  */
-export async function transform(input, options) {
+export async function transform(input, options, data) {
   const ast = await babel.parseAsync(input, {
     plugins: [
       [
@@ -162,28 +177,52 @@ export async function transform(input, options) {
       }
 
       if (REGEXP.test(path.node.value)) {
+        const raw = path.node.value.trim().replace(/\s+/g, '')
+        const key = generateKey(raw)
+        data.set(raw, {
+          origin: raw,
+          key: key,
+          zh_CN: raw,
+        })
+
         path.replaceWith(
           babel.types.callExpression(
             babel.types.identifier(options.importIdentity),
-            [babel.types.stringLiteral(generateKey(path.node.value))],
+            [babel.types.stringLiteral(key)],
           )
         )
       }
     },
     ObjectProperty: (path) => {
       if (babel.types.isStringLiteral(path.node.key) && REGEXP.test(path.node.key.value)) {
+        const raw = path.node.key.value.trim().replace(/\s+/g, '')
+        const key = generateKey(raw)
+        data.set(raw, {
+          origin: raw,
+          key: key,
+          zh_CN: raw,
+        })
+
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
             babel.types.identifier(options.importIdentity),
-            [babel.types.stringLiteral(generateKey(path.node.key.value))],
+            [babel.types.stringLiteral(key)],
           )
         ])
       }
       if (babel.types.isIdentifier(path.node.key) && REGEXP.test(path.node.key.name)) {
+        const raw = path.node.key.name.trim().replace(/\s+/g, '')
+        const key = generateKey(raw)
+        data.set(raw, {
+          origin: raw,
+          key: key,
+          zh_CN: raw,
+        })
+
         path.node.key = babel.types.arrayExpression([
           babel.types.callExpression(
             babel.types.identifier(options.importIdentity),
-            [babel.types.stringLiteral(generateKey(path.node.key.name))],
+            [babel.types.stringLiteral(key)],
           )
         ])
       }
@@ -195,6 +234,14 @@ export async function transform(input, options) {
 
       for (const node of Array.from(path.node.quasis)) {
         if (REGEXP.test(node.value.cooked ?? node.value.raw)) {
+          const raw = (node.value.cooked ?? node.value.raw).trim().replace(/\s+/g, '')
+          const key = generateKey(raw)
+          data.set(raw, {
+            origin: raw,
+            key: key,
+            zh_CN: raw,
+          })
+
           const index = path.node.quasis.indexOf(node)
           path.node.quasis.splice(
             index,
@@ -207,7 +254,7 @@ export async function transform(input, options) {
             0,
             babel.types.callExpression(
               babel.types.identifier(options.importIdentity),
-              [babel.types.stringLiteral(generateKey(node.value.cooked ?? node.value.raw))],
+              [babel.types.stringLiteral(key)],
             ),
           )
         }
@@ -215,21 +262,37 @@ export async function transform(input, options) {
     },
     JSXAttribute: (path) => {
       if (babel.types.isStringLiteral(path.node.value) && REGEXP.test(path.node.value.value)) {
+        const raw = path.node.value.value.trim().replace(/\s+/g, '')
+        const key = generateKey(raw)
+        data.set(raw, {
+          origin: raw,
+          key: key,
+          zh_CN: raw,
+        })
+
         path.node.value = babel.types.jsxExpressionContainer(
           babel.types.callExpression(
             babel.types.identifier(options.importIdentity),
-            [babel.types.stringLiteral(generateKey(path.node.value.value))],
+            [babel.types.stringLiteral(key)],
           )
         )
       }
     },
     JSXText: (path) => {
       if (REGEXP.test(path.node.value)) {
+        const raw = path.node.value.trim().replace(/\s+/g, '')
+        const key = generateKey(raw)
+        data.set(raw, {
+          origin: raw,
+          key: key,
+          zh_CN: raw,
+        })
+
         path.replaceWith(
           babel.types.jsxExpressionContainer(
             babel.types.callExpression(
               babel.types.identifier(options.importIdentity),
-              [babel.types.stringLiteral(generateKey(path.node.value))],
+              [babel.types.stringLiteral(key)],
             )
           )
         )
@@ -262,7 +325,7 @@ export async function transform(input, options) {
  * @returns {string} i18n key
  */
 export function generateKey(chinese) {
-  const py = pinyin(chinese.trim().replace(/\s+/g, ''), { toneType: 'none', type: 'array' })
+  const py = pinyin(chinese, { toneType: 'none', type: 'array' })
   if (py.length >= 16) {
     return py.map(v => v.slice(0, 1)).join('')
   }
@@ -281,7 +344,7 @@ export function generateKey(chinese) {
  * @param {minimist.ParsedArgs & Partial<Args>} args options passing via cli
  * @returns {Readonly<Options>} resolved read-only transform execution options
  */
-export function resolveOptions(options, args) {
+function resolveOptions(options, args) {
   const ops = {}
   ops.root = toString(args.root ?? args.r ?? options.root ?? process.cwd())
   ops.input = toString(args.input ?? args.i ?? args._.at(0) ?? options.input ?? 'index.js')
@@ -308,6 +371,18 @@ export function resolveOptions(options, args) {
   Object.freeze(ops)
 
   return ops
+}
+
+/**
+ * export data to excel utils
+ * @param {Record[]} data export data
+ * @param {string} file output file path
+ */
+function exportSheet(data, file) {
+  const worksheet = xlsx.utils.json_to_sheet(data)
+  const workbook = xlsx.utils.book_new()
+  xlsx.utils.book_append_sheet(workbook, worksheet)
+  xlsx.writeFile(workbook, file)
 }
 
 /**

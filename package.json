@@ -17,7 +17,8 @@
     "@babel/plugin-syntax-typescript": "^7.25.4",
     "glob": "^11.0.0",
     "minimist": "^1.2.8",
-    "pinyin-pro": "^3.24.2"
+    "pinyin-pro": "^3.24.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.5",
