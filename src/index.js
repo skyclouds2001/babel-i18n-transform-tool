@@ -19,9 +19,12 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {string[]} extensions additionally transform file extensions, will extend the default extensions list, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`, could be overwritten by `--extensions`
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`, could be overwritten by `--include`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`, could be overwritten by `--exclude`
- * @property {boolean} autoImport whether automatically import help function, default to be `true`, could be overwritten by `--auto-import`
- * @property {string} importIdentity the identity of the imported help function, default to be `i18n`, could be overwritten by `--import-identity`
- * @property {string} importSource the source of the imported help function, default to be `i18n`, could be overwritten by `--import-source`
+ * @property {boolean} autoImport whether automatically add help function import, default to be `true`, could be overwritten by `--auto-import`
+ * @property {string} importIdentity the identity of the imported help function, default to be `'i18n'`, could be overwritten by `--import-identity`
+ * @property {string} importSource the source of the imported help function, default to be `'i18n'`, could be overwritten by `--import-source`
+ * @property {boolean} exportSheet whether export data to a sheet, default to be `true`, could be overwritten by `--export-sheet`
+ * @property {string} exportSheetPath the exported sheet file path, default to be `options.output`, could be overwritten by `--export-sheet-path`
+ * @property {string} exportSheetName the exported sheet file name, default to be `'data'`, could be overwritten by `--export-sheet-name`
  */
 
 /**
@@ -35,9 +38,12 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {string[]} extensions additionally transform file extensions, will extend the default extensions list, default to be `['.js', '.cjs', '.mjs', '.jsx', '.ts', '.cts', '.mts', '.tsx']`
  * @property {string | string[]} include included transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**'`
  * @property {string | string[]} exclude excluded transform file, accept a glob pattern, only take effect when `input` refer to a dictionary, default to be `'**\node_modules\**'`
- * @property {boolean} autoImport whether automatically import help function, default to be `true`
- * @property {string} importIdentity the identity of the imported help function, default to be `i18n`
- * @property {string} importSource the source of the imported help function, default to be `i18n`
+ * @property {boolean} autoImport whether automatically add help function import, default to be `true`
+ * @property {string} importIdentity the identity of the imported help function, default to be `'i18n'`
+ * @property {string} importSource the source of the imported help function, default to be `'i18n'`
+ * @property {boolean} exportSheet whether export data to a sheet, default to be `true`
+ * @property {string} exportSheetPath the exported sheet file path, default to be `options.output`
+ * @property {string} exportSheetName the exported sheet file name, default to be `'data'`
  */
 
 /**
@@ -63,12 +69,15 @@ export async function exec(options = {}) {
     const argv = minimist(
       process.argv.slice(2),
       {
-        string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude', 'auto-import-identity', 'auto-import-source'],
-        boolean: ['auto-import'],
+        string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude', 'import-identity', 'import-source', 'export-sheet-path', 'export-sheet-name'],
+        boolean: ['auto-import', 'export-sheet'],
         alias: {
           autoImport: 'auto-import',
           importIdentity: 'import-identity',
           importSource: 'import-source',
+          exportSheet: 'export-sheet',
+          exportSheetPath: 'export-sheet-path',
+          exportSheetName: 'export-sheet-name',
         },
         default: {
           'auto-import': true,
@@ -121,10 +130,13 @@ export async function exec(options = {}) {
 
       await fs.promises.writeFile(resolvedOptions.output, result, {
         encoding: 'utf-8',
+        flush: true,
       })
     }
 
-    exportSheet(Array.from(data).map((v) => v[1]), path.resolve(resolvedOptions.output, "data.xlsx"))
+    if (resolvedOptions.exportSheet) {
+      exportSheet(Array.from(data).map((v) => v[1]), path.resolve(resolvedOptions.exportSheetPath, `${resolvedOptions.exportSheetName}.xlsx`))
+    }
   } catch (error) {
     console.error(error)
   }
@@ -355,6 +367,9 @@ function resolveOptions(options, args) {
   ops.autoImport = args.autoImport ?? options.autoImport ?? true
   ops.importIdentity = args.importIdentity ?? options.importIdentity ?? 'i18n'
   ops.importSource = args.importSource ?? options.importSource ?? 'i18n'
+  ops.exportSheet = args.exportSheet ?? options.exportSheet ?? true
+  ops.exportSheetPath = args.exportSheetPath ?? options.exportSheetPath ?? ops.output
+  ops.exportSheetName = args.exportSheetName ?? options.exportSheetName ?? 'data'
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)
@@ -395,7 +410,7 @@ function toArray(data) {
 }
 
 /**
- * transform string or string array to string array
+ * transform string or string array to string
  * @param {string | string[]} data input
  * @returns {string} output
  */
