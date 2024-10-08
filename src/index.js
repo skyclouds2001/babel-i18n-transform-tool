@@ -26,6 +26,7 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {boolean} exportSheet whether export data to a sheet, default to be `true`, could be overwritten by `--export-sheet`
  * @property {string} exportSheetPath the exported sheet file path, default to be `options.output`, could be overwritten by `--export-sheet-path`
  * @property {string} exportSheetName the exported sheet file name, default to be `'data'`, could be overwritten by `--export-sheet-name`
+ * @property {boolean} pretty whether pretty the output file contents, default to `true`, could be overwritten by `--pretty`
  */
 
 /**
@@ -45,6 +46,7 @@ const REGEXP = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/
  * @property {boolean} exportSheet whether export data to a sheet, default to be `true`
  * @property {string} exportSheetPath the exported sheet file path, default to be `options.output`
  * @property {string} exportSheetName the exported sheet file name, default to be `'data'`
+ * @property {boolean} pretty whether pretty the output file contents, default to `true`
  */
 
 /**
@@ -71,7 +73,7 @@ export async function exec(options = {}) {
       process.argv.slice(2),
       {
         string: ['_', 'root', 'input', 'output', 'extensions', 'include', 'exclude', 'import-identity', 'import-source', 'export-sheet-path', 'export-sheet-name'],
-        boolean: ['auto-import', 'export-sheet'],
+        boolean: ['auto-import', 'export-sheet', 'pretty'],
         alias: {
           autoImport: 'auto-import',
           importIdentity: 'import-identity',
@@ -80,13 +82,13 @@ export async function exec(options = {}) {
           exportSheetPath: 'export-sheet-path',
           exportSheetName: 'export-sheet-name',
         },
-        default: {
-          'auto-import': true,
-        },
       },
     )
 
     const resolvedOptions = resolveOptions(options, argv)
+
+    await prettier.clearConfigCache()
+    const prettier_options = (await prettier.resolveConfig(resolvedOptions.input)) ?? {}
 
     const data = new Map()
 
@@ -110,7 +112,7 @@ export async function exec(options = {}) {
             return
           }
 
-          const prettied_code = await prettier.format(transformed_code, { parser: 'babel-ts' })
+          const prettied_code = resolvedOptions.pretty ? (await prettier.format(transformed_code, Object.assign(prettier_options, { filepath: path.resolve(resolvedOptions.input, entry.parentPath ?? entry.path, entry.name) }))) : transformed_code
 
           await fs.promises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), prettied_code, {
             encoding: 'utf-8',
@@ -131,7 +133,7 @@ export async function exec(options = {}) {
         return
       }
 
-      const prettied_code = await prettier.format(transformed_code, { parser: 'babel-ts' })
+      const prettied_code = resolvedOptions.pretty ? (await prettier.format(transformed_code, Object.assign(prettier_options, { filepath: resolvedOptions.input }))) : transformed_code
 
       await fs.promises.writeFile(resolvedOptions.output, prettied_code, {
         encoding: 'utf-8',
@@ -376,6 +378,7 @@ function resolveOptions(options, args) {
   ops.exportSheet = args.exportSheet ?? options.exportSheet ?? true
   ops.exportSheetPath = args.exportSheetPath ?? options.exportSheetPath ?? ops.output
   ops.exportSheetName = args.exportSheetName ?? options.exportSheetName ?? 'data'
+  ops.pretty = args.pretty ?? options.pretty ?? true
 
   if (!path.isAbsolute(ops.input)) {
     ops.input = path.resolve(ops.root, ops.input)

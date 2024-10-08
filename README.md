@@ -44,6 +44,7 @@ exec({
 | exportSheet | --export-sheet | `boolean` | `true` | whether export data to a sheet |
 | exportSheetPath | --export-sheet-path | `string` | `options.output` | the exported sheet file path |
 | exportSheetName | --export-sheet-name | `string` | `'data'` | the exported sheet file name |
+| pretty | --pretty | `boolean` | `true` | whether pretty the output file contents |
 
 ## References
 
