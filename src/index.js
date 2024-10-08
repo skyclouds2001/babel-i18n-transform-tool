@@ -5,6 +5,7 @@ import minimist from 'minimist'
 import { glob } from 'glob'
 import * as babel from '@babel/core'
 import { pinyin } from 'pinyin-pro'
+import * as prettier from 'prettier'
 import * as xlsx from 'xlsx'
 
 xlsx.set_fs(fs)
@@ -103,13 +104,15 @@ export async function exec(options = {}) {
           })
           const code = file.toString()
 
-          const result = await transform(code, resolvedOptions, data)
+          const transformed_code = await transform(code, resolvedOptions, data)
 
-          if (result == null) {
+          if (transformed_code == null) {
             return
           }
 
-          await fs.promises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), result, {
+          const prettied_code = await prettier.format(transformed_code, { parser: 'babel-ts' })
+
+          await fs.promises.writeFile(path.resolve(resolvedOptions.output, path.relative(resolvedOptions.input, entry.parentPath ?? entry.path), entry.name), prettied_code, {
             encoding: 'utf-8',
             flush: true,
           })
@@ -122,13 +125,15 @@ export async function exec(options = {}) {
       })
       const code = file.toString()
 
-      const result = await transform(code, resolvedOptions, data)
+      const transformed_code = await transform(code, resolvedOptions, data)
 
-      if (result == null) {
+      if (transformed_code == null) {
         return
       }
 
-      await fs.promises.writeFile(resolvedOptions.output, result, {
+      const prettied_code = await prettier.format(transformed_code, { parser: 'babel-ts' })
+
+      await fs.promises.writeFile(resolvedOptions.output, prettied_code, {
         encoding: 'utf-8',
         flush: true,
       })
@@ -322,6 +327,7 @@ export async function transform(input, options, data) {
         },
       ],
     ],
+    retainLines: true,
   })
 
   if (result == null || result.code == null) {

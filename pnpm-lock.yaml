@@ -23,6 +23,9 @@ importers:
       pinyin-pro:
         specifier: ^3.24.2
         version: 3.24.2
+      prettier:
+        specifier: ^3.3.3
+        version: 3.3.3
       xlsx:
         specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
         version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
@@ -336,6 +339,11 @@ packages:
 
   pinyin-pro@3.24.2:
     resolution: {integrity: sha512-5tPyLhxT4CZ9dWqQRqm3X5ADdS18Sb2w0ranNBgr6jCrqO4O8gtfuyqG7Y6+1Mre+0n2VlhKDz+3P5oqSLrkOw==}
+
+  prettier@3.3.3:
+    resolution: {integrity: sha512-i2tDNA0O5IrMO757lfrdQZCc2jPNDVntV0m/+4whiDfWaTKfMNgR7Qz0NAeGz/nRqF4m5/6CLzbP4/liHt12Ew==}
+    engines: {node: '>=14'}
+    hasBin: true
 
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
@@ -722,6 +730,8 @@ snapshots:
   picocolors@1.1.0: {}
 
   pinyin-pro@3.24.2: {}
+
+  prettier@3.3.3: {}
 
   semver@6.3.1: {}
 
