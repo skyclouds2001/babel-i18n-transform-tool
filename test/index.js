@@ -3,11 +3,7 @@ import assert from 'node:assert'
 import { transform, generateKey } from '../src/index.js'
 
 test.describe('should be able to transform code', () => {
-  const options = Object.freeze({
-    autoImport: true,
-    autoImportIdentity: 'i18n',
-    autoImportSource: 'i18n',
-  })
+  const options = Object.freeze({})
 
   test.it('should support transform variable declaration - var', async () => {
     const code = `
