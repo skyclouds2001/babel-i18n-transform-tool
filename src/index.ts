@@ -326,7 +326,16 @@ export async function transform(input: string, options: ResolvedOptions, data: M
 
   babel.traverse(ast, {
     Program: (path) => {
-      if (options.autoImport && !path.node.body.some(node => babel.types.isImportDeclaration(node) && node.specifiers.some(nd => nd.local.name === (options.autoImport as AutoImportOptions).identity) && node.source.value === (options.autoImport as AutoImportOptions).source)) {
+      if (options.autoImport &&
+        !path.node.body.some(node => babel.types.isImportDeclaration(node) &&
+          node.specifiers.some(nd => babel.types.isImportSpecifier(nd) &&
+            nd.local.name === (options.autoImport as AutoImportOptions).identity &&
+            babel.types.isIdentifier(nd.imported) &&
+            nd.imported.name === options.functionIdentity
+          ) &&
+          node.source.value === (options.autoImport as AutoImportOptions).source
+        )
+      ) {
         path.node.body.unshift(
           babel.types.importDeclaration(
             [
